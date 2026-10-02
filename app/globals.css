@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/*
+ * Courtside design system — CLAUDE.md §Design System.
+ * `@theme static` emits every token as a real CSS custom property on :root
+ * AND generates Tailwind utilities: bg-bg, bg-surface, bg-surface-2,
+ * border-border, text-orange, bg-orange-glow, text-muted, text-clutch, …
+ * Mirrored in lib/colors.ts for JS consumers.
+ */
+@theme static {
+  --color-bg: #0A0A0A;          /* Near-black base */
+  --color-surface: #141414;     /* Card/panel background */
+  --color-surface-2: #1E1E1E;   /* Elevated surfaces */
+  --color-border: #2A2A2A;      /* Subtle borders */
+  --color-orange: #FF6B00;      /* Primary accent — Courtside brand */
+  --color-orange-glow: #FF6B0033; /* Orange glow for clutch mode */
+  --color-white: #FFFFFF;
+  --color-muted: #888888;       /* Secondary text */
+  --color-clutch: #FF1A1A;      /* Clutch mode red */
+  --color-clutch-glow: #FF1A1A44;
+}
+
+/* Fonts come from next/font variables set on <html> in layout.tsx. */
+@theme inline {
+  --font-display: var(--font-bebas-neue), "Bebas Neue", sans-serif;
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100dvh;
+    background-color: var(--color-bg);
+    color: var(--color-white);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--color-orange);
+    color: var(--color-bg);
+  }
+
+  button {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-orange);
+    outline-offset: 2px;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin, dark scrollbar for the commentary feed. */
+@utility scrollbar-court {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
