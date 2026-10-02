@@ -109,6 +109,31 @@ export interface PlayerOfMatchResult {
   reasoning: string;
 }
 
+// ── Clutch ───────────────────────────────────────────────────
+
+export interface ClutchInput {
+  quarter: Quarter;
+  timeRemaining: number;
+  scoreA: number;
+  scoreB: number;
+}
+
+/** Each clutch condition from CLAUDE.md §5, evaluated independently. */
+export interface ClutchConditions {
+  lateGame: boolean;
+  underTwoMinutes: boolean;
+  closeGame: boolean;
+}
+
+export interface ClutchModeState {
+  /** Latched store flag — stays true once activated. */
+  isClutchMode: boolean;
+  /** Live evaluation of each condition right now. */
+  conditions: ClutchConditions;
+  /** How many of the three conditions currently hold (0–3). */
+  conditionsMet: number;
+}
+
 // ── Store ────────────────────────────────────────────────────
 
 export interface GameState {
