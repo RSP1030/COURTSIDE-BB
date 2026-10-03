@@ -5,10 +5,13 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import CommentaryBubble from "@/components/commentary/CommentaryBubble";
 import VoiceSelector from "@/components/commentary/VoiceSelector";
+import { useCommentary } from "@/hooks/useCommentary";
 import { COMMENTARY_FEED_LIMIT } from "@/lib/constants";
 import { useGameStore } from "@/store/gameStore";
 
 export default function CommentaryFeed() {
+  useCommentary();
+
   const commentary = useGameStore((state) => state.commentary);
   const teamAName = useGameStore((state) => state.teamA.name);
   const teamBName = useGameStore((state) => state.teamB.name);

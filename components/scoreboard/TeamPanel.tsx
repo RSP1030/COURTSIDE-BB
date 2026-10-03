@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { motion, useSpring, useTransform } from "framer-motion";
 
+import ShotPicker from "@/components/scoreboard/ShotPicker";
 import StatButton from "@/components/scoreboard/StatButton";
 import { STAT_CONFIG, STAT_TYPES } from "@/lib/constants";
 import { useGameStore } from "@/store/gameStore";
-import type { AnimatedScoreProps, PointValue, TeamPanelProps } from "@/types/game";
+import type { AnimatedScoreProps, PointValue, ShotDetail, TeamPanelProps } from "@/types/game";
 
 const POINT_VALUES: readonly PointValue[] = [1, 2, 3];
 const MAX_NAME_LENGTH = 16;
@@ -33,6 +34,15 @@ export default function TeamPanel({ teamId, align }: TeamPanelProps) {
   const recordStat = useGameStore((state) => state.recordStat);
 
   const [isEditing, setIsEditing] = useState(false);
+  /** +2/+3 open the shot picker first; +1 scores straight away. */
+  const [pendingPoints, setPendingPoints] = useState<2 | 3 | null>(null);
+  const closePicker = useCallback(() => setPendingPoints(null), []);
+
+  function pickShot(shot: ShotDetail | null) {
+    if (pendingPoints === null) return;
+    addPoints(teamId, pendingPoints, shot ? { shot } : undefined);
+    setPendingPoints(null);
+  }
   const [draftName, setDraftName] = useState(team.name);
 
   const isLeading = team.score > opponentScore;
@@ -116,7 +126,7 @@ export default function TeamPanel({ teamId, align }: TeamPanelProps) {
           <motion.button
             key={points}
             type="button"
-            onClick={() => addPoints(teamId, points)}
+            onClick={() => (points === 1 ? addPoints(teamId, 1) : setPendingPoints(points))}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.92 }}
             aria-label={`Add ${points} point${points > 1 ? "s" : ""} to ${team.name}`}
@@ -141,6 +151,8 @@ export default function TeamPanel({ teamId, align }: TeamPanelProps) {
           />
         ))}
       </div>
+
+      <ShotPicker points={pendingPoints} teamName={team.name} onPick={pickShot} onCancel={closePicker} />
     </section>
   );
 }

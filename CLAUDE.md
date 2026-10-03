@@ -6,7 +6,7 @@ markdown
 Courtside is a premium AI-powered basketball scoreboard and live commentary platform.
 It delivers real-time AI commentary in a Mike Breen broadcast style, cinematic
 AI-generated video moments via Higgsfield for key plays, and stunning WebGL
-visual effects via Unicorn Studio. This is an IBDP portfolio flagship project —
+particle effects via tsParticles. This is an IBDP portfolio flagship project —
 it must be production-quality, well-architected, and genuinely impressive.
 
 ---
@@ -17,17 +17,17 @@ it must be production-quality, well-architected, and genuinely impressive.
 - Tailwind CSS v4
 - Framer Motion v11 (all animations)
 - Zustand v5 (global state — game store)
-- Groq SDK (AI commentary — model: qwen/qwen3-27b-it)
-- ElevenLabs API v2 (TTS — voice: Adam or Josh, model: eleven_turbo_v2_5)
+- Groq SDK (AI commentary — model: openai/gpt-oss-120b)
+- ElevenLabs API v2 (TTS — voice: Adam or Josh, model: eleven_v3 — audio tags + CAPS emphasis; streamed via GET /api/tts)
 - Higgsfield API (cinematic AI video moments — via MCP or REST)
-- unicornstudio-react (WebGL background effects from Unicorn Studio)
+- tsparticles + @tsparticles/react v4 (dual-mode particle background — normal vs clutch)
 - Vercel (deployment target)
 
 ---
 
 ### PROJECT STRUCTURE
 
-courtside/ ├── CLAUDE.md ← YOU ARE HERE ├── .env.local ← API keys (never commit this) ├── app/ │ ├── layout.tsx ← Root layout, fonts, global styles │ ├── page.tsx ← Main game view │ ├── globals.css ← Tailwind + CSS variables │ └── api/ │ ├── commentary/route.ts ← Groq streaming API route │ ├── tts/route.ts ← ElevenLabs TTS API route │ └── higgsfield/route.ts ← Higgsfield video generation route ├── components/ │ ├── scoreboard/ │ │ ├── Scoreboard.tsx ← Main scoreboard container │ │ ├── TeamPanel.tsx ← One team's score + stats │ │ ├── GameClock.tsx ← Quarter + time display │ │ └── StatButton.tsx ← +REB, +AST, +FOUL, +TO buttons │ ├── commentary/ │ │ ├── CommentaryFeed.tsx ← Scrollable commentary history │ │ ├── CommentaryBubble.tsx ← Individual commentary entry │ │ └── VoiceSelector.tsx ← Switch commentator styles │ ├── effects/ │ │ ├── ClutchOverlay.tsx ← Red pulse + intensity on clutch mode │ │ ├── UnicornBackground.tsx ← WebGL Unicorn Studio scene wrapper │ │ ├── ScoreCelebration.tsx ← Particle burst on big plays │ │ └── HighsfieldMomentModal.tsx ← Full-screen cinematic video moment │ ├── game/ │ │ ├── PlayerStats.tsx ← Per-player stat tracker │ │ ├── PlayerOfMatch.tsx ← AI-generated POTM reveal │ │ └── GameSummary.tsx ← Post-game AI recap │ └── audio/ │ └── AudioEngine.tsx ← Crowd noise, TTS playback, mixing ├── store/ │ └── gameStore.ts ← Zustand: all game state ├── lib/ │ ├── groq.ts ← Groq client + commentary prompt │ ├── elevenlabs.ts ← ElevenLabs client + voice map │ ├── higgsfield.ts ← Higgsfield API client │ └── constants.ts ← Game constants, voice configs ├── hooks/ │ ├── useCommentary.ts ← Commentary trigger logic │ ├── useClutchMode.ts ← Clutch mode detection + activation │ ├── useAudio.ts ← Audio playback hook │ └── useHighsfieldMoment.ts ← Trigger + poll cinematic generation ├── types/ │ └── game.ts ← All TypeScript types └── public/ └── sounds/ ├── crowd-cheer.mp3 ├── applause.mp3 └── stomp-cheer.mp3
+courtside/ ├── CLAUDE.md ← YOU ARE HERE ├── .env.local ← API keys (never commit this) ├── app/ │ ├── layout.tsx ← Root layout, fonts, global styles │ ├── page.tsx ← Main game view │ ├── globals.css ← Tailwind + CSS variables │ └── api/ │ ├── commentary/route.ts ← Groq streaming API route │ ├── tts/route.ts ← ElevenLabs TTS API route │ └── higgsfield/route.ts ← Higgsfield video generation route ├── components/ │ ├── scoreboard/ │ │ ├── Scoreboard.tsx ← Main scoreboard container │ │ ├── TeamPanel.tsx ← One team's score + stats │ │ ├── GameClock.tsx ← Quarter + time display │ │ └── StatButton.tsx ← +REB, +AST, +FOUL, +TO buttons │ ├── commentary/ │ │ ├── CommentaryFeed.tsx ← Scrollable commentary history │ │ ├── CommentaryBubble.tsx ← Individual commentary entry │ │ └── VoiceSelector.tsx ← Switch commentator styles │ ├── effects/ │ │ ├── ClutchOverlay.tsx ← Red pulse + intensity on clutch mode │ │ ├── ParticleBackground.tsx ← tsParticles normal/clutch backdrop │ │ ├── ScoreCelebration.tsx ← Particle burst on big plays │ │ └── HighsfieldMomentModal.tsx ← Full-screen cinematic video moment │ ├── game/ │ │ ├── PlayerStats.tsx ← Per-player stat tracker │ │ ├── PlayerOfMatch.tsx ← AI-generated POTM reveal │ │ └── GameSummary.tsx ← Post-game AI recap │ └── audio/ │ └── AudioEngine.tsx ← Crowd noise, TTS playback, mixing ├── store/ │ └── gameStore.ts ← Zustand: all game state ├── lib/ │ ├── groq.ts ← Groq client + commentary prompt │ ├── elevenlabs.ts ← ElevenLabs client + voice map │ ├── higgsfield.ts ← Higgsfield API client │ └── constants.ts ← Game constants, voice configs ├── hooks/ │ ├── useCommentary.ts ← Commentary trigger logic │ ├── useClutchMode.ts ← Clutch mode detection + activation │ ├── useAudio.ts ← Audio playback hook │ └── useHighsfieldMoment.ts ← Trigger + poll cinematic generation ├── types/ │ └── game.ts ← All TypeScript types └── public/ └── sounds/ ├── crowd-cheer.mp3 ├── applause.mp3 └── stomp-cheer.mp3
 
 
 ---
@@ -62,7 +62,7 @@ Cinematic and athletic.
 
 ### ENVIRONMENT VARIABLES (.env.local)
 
-GROQ_API_KEY= ELEVENLABS_API_KEY= HIGGSFIELD_API_KEY= NEXT_PUBLIC_UNICORN_AMBIENT_ID= # Unicorn Studio project embed ID (ambient bg) NEXT_PUBLIC_UNICORN_CLUTCH_ID= # Unicorn Studio project embed ID (clutch effect)
+GROQ_API_KEY= ELEVENLABS_API_KEY= HIGGSFIELD_API_KEY=
 
 
 ---
@@ -90,6 +90,9 @@ interface GameState {
 #### 2. SCOREBOARD
 - Team name editable on click
 - Score increments: +1, +2, +3 buttons (not generic +1)
+- Shot detail (ShotPicker.tsx): +2 asks Layup / Dunk / Jumper / Floater; +3 asks the spot on a
+  mini court (corners, wings, top, logo). One-tap "Just +2/+3" skips it; Cancel/Esc scores nothing.
+  The detail feeds the commentary prompt; dunks count as big plays (high energy) like 3s and blocks
 - Live stat tracking: REB, AST, FOUL, TO, STL, BLK per team
 - Quarter selector: Q1 Q2 Q3 Q4 OT
 - Optional countdown timer (60-second shot clock aesthetic)
@@ -111,7 +114,7 @@ Never be generic. Every call is specific to this exact moment. Output ONLY the c
 
 #### 4. TTS (ElevenLabs)
 - Voice: Adam (default), Josh, Rachel (female option)
-- Model: eleven_turbo_v2_5 (fast, low latency)
+- Model: eleven_v3 (only model with real shouting/emphasis; streamed so first audio ~1s). Energy tiers + [shouting] tag placement live in lib/energy.ts. Costs ~1 credit/char — the account is on the 10k-credit free tier, so check quota before voice tests
 - Stream audio directly via browser Audio API
 - Queue system: if TTS is playing, queue next commentary
 - Voice selector: dropdown with preview button
@@ -125,14 +128,17 @@ STAYS ON once activated (does not deactivate mid-game).
 Effects on activation:
 - UI border pulses red (Framer Motion animate)
 - "CLUTCH MODE" banner slides in from top
-- Unicorn Studio switches from ambient to clutch effect scene
+- Particle background crossfades from ambient spotlights to clutch embers
 - Commentary prompt intensifies
 - Trigger Higgsfield generation for a cinematic crowd/arena moment
 
 #### 6. CROWD NOISE (AudioEngine)
 - 3 sounds: cheer, applause, stomp-cheer
 - Random selection on each play
-- Fade out after 3 seconds
+- Broadcast "bed": holds at full volume until the voice starts, ducks to 40% under it,
+  fades out when the call ends (7s safety fade if no voice comes)
+- Volume via Web Audio GainNode ramps — iOS ignores audio.volume, and gain ramps keep
+  working in background tabs (rAF-driven fades stall there)
 - Volume: 0.35 max (balanced under TTS)
 - In clutch mode: volume increases to 0.55, stomp-cheer more frequent
 
@@ -151,25 +157,25 @@ Implementation:
 - Show skeleton/loading state while generating ("Generating your cinematic moment...")
 - Store last 3 generated clips in session
 
-#### 8. UNICORN STUDIO EFFECTS
-Two scenes needed — create them at unicorn.studio BEFORE running code:
+#### 8. PARTICLE EFFECTS (tsParticles — replaced Unicorn Studio)
+components/effects/ParticleBackground.tsx, fixed full-screen at z-index 0 behind all UI.
 
-Scene A — AMBIENT BACKGROUND:
-"Basketball court texture, subtle orange particles floating upward,
-dark atmospheric, premium sports broadcast feel. Should be subtle
-enough to not distract from UI overlaid on top."
+NORMAL MODE (isClutchMode === false):
+- #0A0A0A background + faint court-line texture
+- 40 large soft orange (#FF6B00) spotlights, opacity ≤ 0.3, drifting slowly upward
 
-Scene B — CLUTCH MODE EFFECT:
-"Intense heat distortion, red particles, dramatic energy, like
-looking through a lens flare in an arena at crunch time.
-More intense and saturated than ambient."
+CLUTCH MODE (isClutchMode === true):
+- 120 red/orange (#FF1A1A / #FF6B00) embers bursting outward from centre court, 3× speed
+- Flame flicker (fast opacity + size animation, wobble); centre emitter keeps the burst going
+- Red edge glow fades in; ClutchOverlay pulses the screen border red (Framer Motion)
 
-Integration:
-```tsx
-import UnicornScene from "unicornstudio-react/next";
-// Ambient always running behind UI (position: absolute, full screen, z-index: 0)
-// Clutch scene fades in over ambient when clutchMode === true
-```
+Implementation notes:
+- Each mode is its own container with FIXED options, crossfaded over 0.8s with Framer Motion —
+  changing a container's options makes @tsparticles/react destroy + rebuild it (visible pop)
+- Options and the particlesLoaded callback must be stable references for the same reason
+- Soft particles are pre-rendered radial-gradient sprites (shape "image"), not shadowBlur/CSS blur
+- 60fps cap, detectRetina off, pauses on visibilitychange, still frame for prefers-reduced-motion
+- tsparticles (loadFull) is dynamically imported, so it stays out of the main bundle
 
 #### 9. COMMENTARY HISTORY FEED
 - Max 20 entries shown, oldest scrolls off
@@ -224,7 +230,7 @@ import UnicornScene from "unicornstudio-react/next";
 - Real AI integration (not mocked)
 - Real-time streaming commentary
 - Cinematic AI video generation on key moments
-- WebGL visual effects
+- Dual-mode particle effects (tsParticles)
 - Professional design system
 - Clean TypeScript architecture
 - Deployable on Vercel

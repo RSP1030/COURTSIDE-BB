@@ -97,13 +97,13 @@ export const useGameStore = create<GameStore>()((set) => ({
     })),
 
   // ── Plays ────────────────────────────────────────────────
-  addPoints: (teamId, points, playerId) =>
+  addPoints: (teamId, points, detail) =>
     set((state) => {
       const team = state[teamId];
       const updatedTeam: Team = {
         ...team,
         score: team.score + points,
-        players: updatePlayer(team.players, playerId, (p) => ({ ...p, points: p.points + points })),
+        players: updatePlayer(team.players, detail?.playerId, (p) => ({ ...p, points: p.points + points })),
       };
       const scoreA = teamId === "teamA" ? updatedTeam.score : state.teamA.score;
       const scoreB = teamId === "teamB" ? updatedTeam.score : state.teamB.score;
@@ -113,8 +113,10 @@ export const useGameStore = create<GameStore>()((set) => ({
         kind: "score",
         id: crypto.randomUUID(),
         teamId,
-        playerId: playerId ?? null,
+        playerId: detail?.playerId ?? null,
         points,
+        // A shot detail only makes sense for the value it belongs to.
+        shot: detail?.shot && points !== 1 ? detail.shot : null,
         quarter: state.quarter,
         timeRemaining: state.timeRemaining,
         score: { teamA: scoreA, teamB: scoreB },
@@ -220,6 +222,13 @@ export const useGameStore = create<GameStore>()((set) => ({
     set((state) => ({
       commentary: state.commentary.map((entry) =>
         entry.id === id ? { ...entry, isStreaming: false } : entry,
+      ),
+    })),
+
+  failCommentary: (id, message) =>
+    set((state) => ({
+      commentary: state.commentary.map((entry) =>
+        entry.id === id ? { ...entry, text: message, isStreaming: false, isError: true } : entry,
       ),
     })),
 

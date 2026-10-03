@@ -1,14 +1,16 @@
+import AudioEngine from "@/components/audio/AudioEngine";
 import CommentaryFeed from "@/components/commentary/CommentaryFeed";
 import ClutchOverlay, { ClutchBanner } from "@/components/effects/ClutchOverlay";
-import UnicornBackground from "@/components/effects/UnicornBackground";
+import ParticleBackground from "@/components/effects/ParticleBackground";
 import Scoreboard from "@/components/scoreboard/Scoreboard";
 
 export default function Home() {
   return (
     <div className="relative isolate min-h-dvh overflow-x-hidden">
       {/* Effects layer — behind everything */}
-      <UnicornBackground />
+      <ParticleBackground />
       <ClutchOverlay />
+      <AudioEngine />
 
       <div className="relative z-10 mx-auto flex max-w-[1440px] flex-col gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
         <ClutchBanner />

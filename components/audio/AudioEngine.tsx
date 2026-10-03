@@ -1,7 +1,11 @@
 "use client";
 
-// Crowd noise, TTS playback, mixing.
-// TODO(session: audio): implement.
+import { useAudio } from "@/hooks/useAudio";
+import { useWarmRoutes } from "@/hooks/useWarmRoutes";
+
+// Headless: crowd bed, queued TTS playback and mixing live in useAudio.
 export default function AudioEngine() {
+  useWarmRoutes();
+  useAudio();
   return null;
 }

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 
+import { stripAudioTags } from "@/lib/energy";
 import { formatClock, formatQuarter } from "@/lib/format";
 import type { CommentaryBubbleProps, CommentaryVariant } from "@/types/game";
 
@@ -11,8 +12,11 @@ const VARIANT_STYLES: Record<CommentaryVariant, { rail: string; text: string; ta
   highlight: { rail: "bg-orange", text: "text-orange", tag: "Highlight" },
 };
 
+const ERROR_STYLE = { rail: "bg-muted", text: "text-muted", tag: "Off air" } as const;
+
 export default function CommentaryBubble({ entry, teamAName, teamBName }: CommentaryBubbleProps) {
-  const style = VARIANT_STYLES[entry.variant];
+  const style = entry.isError ? ERROR_STYLE : VARIANT_STYLES[entry.variant];
+  const isWaiting = entry.isStreaming && entry.text.length === 0;
 
   return (
     <motion.li
@@ -34,8 +38,24 @@ export default function CommentaryBubble({ entry, teamAName, teamBName }: Commen
           </span>
           {style.tag && <span className={`ml-auto ${style.text}`}>{style.tag}</span>}
         </div>
-        <p className={`mt-1.5 text-[15px] font-medium leading-snug ${style.text}`}>
-          {entry.text}
+        {isWaiting && (
+          <div aria-label="Commentator is on the call" className="mt-2 flex flex-col gap-1.5">
+            {["w-11/12", "w-2/3"].map((width) => (
+              <motion.span
+                key={width}
+                className={`h-3 rounded bg-white/10 ${width}`}
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+              />
+            ))}
+          </div>
+        )}
+        <p
+          className={`mt-1.5 text-[15px] leading-snug ${entry.isError ? "text-xs italic" : "font-medium"} ${style.text} ${
+            isWaiting ? "sr-only" : ""
+          }`}
+        >
+          {entry.isError ? entry.text : stripAudioTags(entry.text)}
           {entry.isStreaming && (
             <motion.span
               aria-hidden
