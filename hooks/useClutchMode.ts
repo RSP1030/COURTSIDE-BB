@@ -12,8 +12,9 @@ export function useClutchMode(): ClutchModeState {
   const timeRemaining = useGameStore((state) => state.timeRemaining);
   const scoreA = useGameStore((state) => state.teamA.score);
   const scoreB = useGameStore((state) => state.teamB.score);
+  const format = useGameStore((state) => state.gameFormat);
 
-  const conditions = evaluateClutchConditions({ quarter, timeRemaining, scoreA, scoreB });
+  const conditions = evaluateClutchConditions({ format, quarter, timeRemaining, scoreA, scoreB });
   const conditionsMet = Object.values(conditions).filter(Boolean).length;
 
   return { isClutchMode, conditions, conditionsMet };

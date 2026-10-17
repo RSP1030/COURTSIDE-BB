@@ -14,6 +14,7 @@ export function useWarmRoutes(): void {
     const ignore = () => undefined;
     fetch("/api/tts", { method: "HEAD", signal: controller.signal }).catch(ignore);
     fetch("/api/commentary", { method: "HEAD", signal: controller.signal }).catch(ignore);
+    fetch("/api/higgsfield", { method: "HEAD", signal: controller.signal }).catch(ignore);
     return () => controller.abort();
   }, []);
 }

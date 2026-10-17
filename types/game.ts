@@ -9,7 +9,11 @@ import type { IParticlesProps } from "@tsparticles/react";
 
 export type TeamId = "teamA" | "teamB";
 
+/** A period: quarters 1–4, halves 1–2, or overtime. (Named Quarter for history.) */
 export type Quarter = 1 | 2 | 3 | 4 | "OT";
+
+/** 4 quarters (Q1–Q4) or 2 halves (H1–H2), each with OT. */
+export type GameFormat = "quarters" | "halves";
 
 export type PointValue = 1 | 2 | 3;
 
@@ -39,8 +43,42 @@ export type HiggsfieldStatus = "idle" | "generating" | "ready" | "error";
 export type HiggsfieldTrigger =
   | "clutch-activation"
   | "clutch-three"
+  | "buzzer-beater"
   | "game-winner"
   | "player-of-match";
+
+/** Instant Lottie moments: the cinematic triggers plus small corner pops for big plays. */
+export type LottieMomentKind = HiggsfieldTrigger | "big-play";
+
+export interface LottieMomentConfig {
+  /** Path under /public, loaded at runtime (missing files fall back to a text burst). */
+  file: string;
+  /** Both centred over a dark backdrop. full = big moments; pop = smaller, for dunk/block/steal. */
+  size: "full" | "pop";
+  label: string;
+}
+
+export interface LottieMoment {
+  id: string;
+  kind: LottieMomentKind;
+  /** Overrides the config label (e.g. "Dunk!" / "Block!" for big plays). */
+  label: string;
+  startedAt: number;
+}
+
+/** Fallback shown while an animation file hasn't been added to public/animations/. */
+export interface TextBurstProps {
+  label: string;
+  compact: boolean;
+}
+
+export interface LottieMomentOverlayProps {
+  moment: LottieMoment | null;
+  onDone: (id: string) => void;
+}
+
+/** Higgsfield request lifecycle (GET /requests/{id}/status). */
+export type HiggsfieldJobStatus = "queued" | "in_progress" | "completed" | "failed" | "nsfw" | "canceled";
 
 // ── Domain models ────────────────────────────────────────────
 
@@ -132,6 +170,7 @@ export interface PlayerOfMatchResult {
 // ── Clutch ───────────────────────────────────────────────────
 
 export interface ClutchInput {
+  format: GameFormat;
   quarter: Quarter;
   timeRemaining: number;
   scoreA: number;
@@ -207,6 +246,9 @@ export interface GameState {
   timeRemaining: number;
   isClockRunning: boolean;
   isClutchMode: boolean;
+  /** True once the scorer uses the clutch toggle — automatic detection then stays out of it. */
+  clutchManual: boolean;
+  gameFormat: GameFormat;
   /** Full history (the feed renders the latest COMMENTARY_FEED_LIMIT). */
   commentary: CommentaryEntry[];
   lastPlay: PlayEvent | null;
@@ -218,6 +260,11 @@ export interface GameState {
   higgsfieldStatus: HiggsfieldStatus;
   /** Last MAX_HIGGSFIELD_CLIPS generated clips this session. */
   higgsfieldClips: HiggsfieldClip[];
+  /** The moment being generated / shown: what triggered it and the line overlaid on the video. */
+  higgsfieldMoment: HiggsfieldMoment | null;
+  higgsfieldError: string | null;
+  /** The Lottie moment on screen, if any. */
+  lottieMoment: LottieMoment | null;
   gamePhase: GamePhase;
   playerOfMatch: PlayerOfMatchResult | null;
   gameSummary: string | null;
@@ -235,6 +282,10 @@ export interface GameActions {
 
   // Clock
   setQuarter: (quarter: Quarter) => void;
+  /** Switches quarters ↔ halves: back to period 1 with a full clock (scores kept). */
+  setGameFormat: (format: GameFormat) => void;
+  /** Manual clutch toggle — takes over from automatic detection for the rest of the game. */
+  setClutchMode: (on: boolean) => void;
   setTimeRemaining: (seconds: number) => void;
   tick: () => void;
   startClock: () => void;
@@ -253,9 +304,18 @@ export interface GameActions {
 
   // Higgsfield
   setHiggsfieldStatus: (status: HiggsfieldStatus) => void;
+  /** Opens the modal in its loading state for a new moment. */
+  startHiggsfieldMoment: (moment: HiggsfieldMoment) => void;
+  failHiggsfieldMoment: (message: string) => void;
+  /** Stores the clip, marks it ready and (re)opens the modal to play it. */
   addHiggsfieldClip: (clip: HiggsfieldClip) => void;
   openHiggsfieldModal: (videoUrl: string) => void;
   closeHiggsfieldModal: () => void;
+
+  // Lottie moments
+  /** Shows a moment unless it would cut off one that matters more (see store). */
+  showLottieMoment: (kind: LottieMomentKind, label?: string) => void;
+  clearLottieMoment: (id: string) => void;
 
   // End of game
   endGame: () => void;
@@ -287,6 +347,12 @@ export interface TeamPanelProps {
   align: "left" | "right";
 }
 
+export interface ClockEditorProps {
+  seconds: number;
+  onSave: (seconds: number) => void;
+  onCancel: () => void;
+}
+
 export interface ShotOption<T extends ShotDetail> {
   id: T;
   label: string;
@@ -314,6 +380,7 @@ export interface CommentaryBubbleProps {
   entry: CommentaryEntry;
   teamAName: string;
   teamBName: string;
+  gameFormat: GameFormat;
 }
 
 /** tsParticles options/container, derived from @tsparticles/react so the engine isn't a direct dependency. */
@@ -333,8 +400,35 @@ export interface ScoreCelebrationProps {
 
 export interface HiggsfieldMomentModalProps {
   isOpen: boolean;
+  status: HiggsfieldStatus;
   videoUrl: string | null;
+  moment: HiggsfieldMoment | null;
+  error: string | null;
   onClose: () => void;
+}
+
+export interface HiggsfieldMoment {
+  trigger: HiggsfieldTrigger;
+  /** Commentary line overlaid on the video. */
+  caption: string;
+  startedAt: number;
+}
+
+/** Body of POST /api/higgsfield — the client names a trigger; the prompt is chosen server-side. */
+export interface HiggsfieldStartRequest {
+  trigger: HiggsfieldTrigger;
+}
+
+export interface HiggsfieldStartResponse {
+  jobId: string;
+  status: HiggsfieldJobStatus;
+}
+
+/** Response of GET /api/higgsfield?job_id= */
+export interface HiggsfieldPollResponse {
+  status: HiggsfieldJobStatus;
+  videoUrl: string | null;
+  error: string | null;
 }
 
 export interface PlayerStatsProps {

@@ -16,6 +16,7 @@ export default function CommentaryFeed() {
   const teamAName = useGameStore((state) => state.teamA.name);
   const teamBName = useGameStore((state) => state.teamB.name);
   const isClutchMode = useGameStore((state) => state.isClutchMode);
+  const gameFormat = useGameStore((state) => state.gameFormat);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const visible = commentary.slice(-COMMENTARY_FEED_LIMIT);
@@ -60,7 +61,13 @@ export default function CommentaryFeed() {
           <ol className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {visible.map((entry) => (
-                <CommentaryBubble key={entry.id} entry={entry} teamAName={teamAName} teamBName={teamBName} />
+                <CommentaryBubble
+                  key={entry.id}
+                  entry={entry}
+                  teamAName={teamAName}
+                  teamBName={teamBName}
+                  gameFormat={gameFormat}
+                />
               ))}
             </AnimatePresence>
           </ol>

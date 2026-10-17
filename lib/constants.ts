@@ -1,4 +1,8 @@
 import type {
+  GameFormat,
+  HiggsfieldTrigger,
+  LottieMomentConfig,
+  LottieMomentKind,
   Quarter,
   ShotOption,
   StatConfig,
@@ -13,11 +17,24 @@ import type {
 // ── Clock ────────────────────────────────────────────────────
 /** 10-minute quarters (FIBA / school rules). Change to 720 for NBA. */
 export const QUARTER_LENGTH_SECONDS = 600;
+/** 20-minute halves (college / FIBA-length games played in two halves). */
+export const HALF_LENGTH_SECONDS = 1200;
 export const OVERTIME_LENGTH_SECONDS = 300;
-export const QUARTERS: readonly Quarter[] = [1, 2, 3, 4, "OT"];
+/** Longest time the scorer can type into the clock (99:59). */
+export const MAX_CLOCK_SECONDS = 99 * 60 + 59;
+export const DEFAULT_GAME_FORMAT: GameFormat = "quarters";
 
-export function periodLength(quarter: Quarter): number {
-  return quarter === "OT" ? OVERTIME_LENGTH_SECONDS : QUARTER_LENGTH_SECONDS;
+export const PERIODS: Record<GameFormat, readonly Quarter[]> = {
+  quarters: [1, 2, 3, 4, "OT"],
+  halves: [1, 2, "OT"],
+};
+
+/** The last regulation period — where clutch time can start. */
+export const FINAL_PERIOD: Record<GameFormat, Quarter> = { quarters: 4, halves: 2 };
+
+export function periodLength(quarter: Quarter, format: GameFormat): number {
+  if (quarter === "OT") return OVERTIME_LENGTH_SECONDS;
+  return format === "halves" ? HALF_LENGTH_SECONDS : QUARTER_LENGTH_SECONDS;
 }
 
 // ── Clutch mode (CLAUDE.md §5) ───────────────────────────────
@@ -116,5 +133,51 @@ export const CROWD_FADE_DURATION_S = 1.2;
 /** Chance stomp-cheer is picked in clutch mode (otherwise uniform across all three). */
 export const CROWD_STOMP_CHANCE_CLUTCH = 0.6;
 
+// ── Cinematic moments: Lottie now, Higgsfield when funded ───
+/**
+ * false → cinematic triggers play instant Lottie animations (free, offline).
+ * true  → clutch activation / clutch three / game winner / POTM generate a
+ *         Higgsfield video instead (~$1.50 each — needs API credit).
+ * Big-play corner pops (dunk/block/steal) are always Lottie.
+ */
+export const HIGGSFIELD_ENABLED = false;
+
+/**
+ * Trigger → animation. Files live in public/animations/. Each plays once at its own
+ * natural length (never sped up or slowed down), then the overlay closes.
+ */
+export const LOTTIE_MOMENTS: Record<LottieMomentKind, LottieMomentConfig> = {
+  "clutch-activation": { file: "/animations/fire-explosion.json", size: "full", label: "Clutch Time" },
+  "clutch-three": { file: "/animations/basketball-score.json", size: "full", label: "Bang!" },
+  "buzzer-beater": { file: "/animations/basketball-score.json", size: "full", label: "At the Horn!" },
+  "game-winner": { file: "/animations/confetti-celebration.json", size: "full", label: "Game Winner" },
+  "player-of-match": { file: "/animations/crowd-cheer.json", size: "full", label: "Player of the Match" },
+  "big-play": { file: "/animations/basketball-score.json", size: "pop", label: "Big Play!" },
+};
+/** How long the text-burst fallback stays up when an animation file is missing. */
+export const LOTTIE_FALLBACK_MS = 2000;
+
 // ── Higgsfield (CLAUDE.md §7) ────────────────────────────────
 export const MAX_HIGGSFIELD_CLIPS = 3;
+/** Client polls the job this often (spec: every 3s). */
+export const HIGGSFIELD_POLL_INTERVAL_MS = 3000;
+/** Give up on a job after this long — Seedance usually finishes in 15–60s. */
+export const HIGGSFIELD_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Label shown on the video for each moment. */
+export const HIGGSFIELD_TRIGGER_LABELS: Record<HiggsfieldTrigger, string> = {
+  "clutch-activation": "Clutch Time",
+  "clutch-three": "Clutch Three",
+  "buzzer-beater": "Buzzer Beater",
+  "game-winner": "Game Winner",
+  "player-of-match": "Player of the Match",
+};
+
+/** Overlay line when no commentary call is available yet. */
+export const HIGGSFIELD_FALLBACK_CAPTIONS: Record<HiggsfieldTrigger, string> = {
+  "clutch-activation": "Final two minutes. One-possession game. This is CLUTCH TIME!",
+  "clutch-three": "From WAY downtown... BANG!",
+  "buzzer-beater": "At the horn... IT'S GOOD!",
+  "game-winner": "That's the ballgame! What a finish!",
+  "player-of-match": "Your Player of the Match!",
+};

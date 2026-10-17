@@ -21,6 +21,7 @@ it must be production-quality, well-architected, and genuinely impressive.
 - ElevenLabs API v2 (TTS — voice: Adam or Josh, model: eleven_v3 — audio tags + CAPS emphasis; streamed via GET /api/tts)
 - Higgsfield API (cinematic AI video moments — via MCP or REST)
 - tsparticles + @tsparticles/react v4 (dual-mode particle background — normal vs clutch)
+- lottie-react v3 (instant cinematic moments; Lottie JSON in public/animations/)
 - Vercel (deployment target)
 
 ---
@@ -94,8 +95,11 @@ interface GameState {
   mini court (corners, wings, top, logo). One-tap "Just +2/+3" skips it; Cancel/Esc scores nothing.
   The detail feeds the commentary prompt; dunks count as big plays (high energy) like 3s and blocks
 - Live stat tracking: REB, AST, FOUL, TO, STL, BLK per team
-- Quarter selector: Q1 Q2 Q3 Q4 OT
-- Optional countdown timer (60-second shot clock aesthetic)
+- Game format switch: 4Q (Q1–Q4 + OT, 10-min quarters) or 2H (H1–H2 + OT, 20-min halves);
+  switching resets to period 1 with a full clock, scores kept. Feed labels follow the format
+- Period selector for the chosen format
+- Countdown clock: tap it to edit (separate MM / SS boxes — phone keypads have no ":"), max 99:59
+- Clutch toggle button next to Start/Reset (see §5)
 - Smooth score increment animation (Framer Motion number spring)
 
 #### 3. AI COMMENTARY (Groq)
@@ -120,11 +124,14 @@ Never be generic. Every call is specific to this exact moment. Output ONLY the c
 - Voice selector: dropdown with preview button
 
 #### 5. CLUTCH MODE
-Activates when ALL of these are true:
-- Quarter = 4 or OT
+Activates automatically when ALL of these are true:
+- Final regulation period (Q4 in quarters, H2 in halves) or OT
 - Time remaining ≤ 120 seconds (2 minutes)
 - Score difference ≤ 5 points
 STAYS ON once activated (does not deactivate mid-game).
+Manual toggle (GameClock "Clutch" button, shows an AUTO badge until used): once the scorer
+taps it, their choice wins and automatic detection stays out of it for the rest of the game
+(clutchManual in the store). Turning it on by hand fires the same activation effects.
 Effects on activation:
 - UI border pulses red (Framer Motion animate)
 - "CLUTCH MODE" banner slides in from top
@@ -142,19 +149,50 @@ Effects on activation:
 - Volume: 0.35 max (balanced under TTS)
 - In clutch mode: volume increases to 0.55, stomp-cheer more frequent
 
-#### 7. HIGGSFIELD CINEMATIC MOMENTS
+#### 7. CINEMATIC MOMENTS — Lottie now, Higgsfield behind a flag
+`HIGGSFIELD_ENABLED` in lib/constants.ts is the ONE switch (currently false):
+- false → instant Lottie animation (free). true → Higgsfield video (paid, ~$1.50/clip)
+- Every trigger goes through hooks/useCinematicMoment.ts; nothing else reads the flag
+- Dunk/Block/Steal corner pops are always Lottie
+
+Lottie moments (LOTTIE_MOMENTS in lib/constants.ts, rendered by components/effects/LottieMomentOverlay.tsx):
+- Clutch activation → fire-explosion.json (big)
+- 3-pointer in clutch → basketball-score.json (big)
+- Game winner (header button) → confetti-celebration.json (big)
+- Player of the Match reveal → crowd-cheer.json (big — wire when POTM is built)
+- Dunk / Block / Steal → basketball-score.json ("pop": smaller, same centre position)
+- All centred over a dim backdrop. Each plays ONCE AT ITS NATURAL LENGTH (never sped up or
+  slowed) and closes on the animation's "complete" event (+ safety timer: length + 1.5s).
+  pointer-events-none so the scoreboard stays usable underneath. A big moment is never cut
+  off by another moment; pops replace pops
+- File names must match exactly (case-sensitive): basketball-score.json, fire-explosion.json,
+  confetti-celebration.json, crowd-cheer.json
+- Files are fetched at runtime from public/animations/ — a missing file falls back to an
+  animated text burst, so nothing breaks before the JSON is added
+- lottie-react is client-only + code-split (next/dynamic, ssr:false); LottieSvg renderer
+
+#### 7b. HIGGSFIELD (when HIGGSFIELD_ENABLED = true)
 Triggered on:
 a) Clutch mode activation → "Intense NBA arena atmosphere, crowd roaring, slow motion"
 b) 3-pointer in clutch mode → "Basketball swishing through net in slow motion, cinematic"
 c) Game-winning play → "Victory celebration, confetti falling, crowd erupting"
 d) Player of the Match reveal → "Basketball player portrait, dramatic lighting, ESPN style"
 
-Implementation:
-- Call Higgsfield API (REST: POST /v1/video/generate or via MCP)
-- Model: use best available cinematic model (seedance-2.0 or kling-3.0)
-- Poll for completion (Higgsfield jobs are async)
-- On completion: show full-screen modal with the video + commentary overlay
-- Show skeleton/loading state while generating ("Generating your cinematic moment...")
+Implementation (verified against docs.higgsfield.ai — "POST /v1/video/generate" does not exist):
+- Base https://api.higgsfield.ai, auth header `Authorization: Key KEY_ID:KEY_SECRET`
+  (HIGGSFIELD_API_KEY must hold both parts, from console.higgsfield.ai)
+- Submit: POST /bytedance/seedance-2.0/text-to-video { prompt, duration 4–15, resolution, aspect_ratio,
+  generate_audio } → { request_id, status }
+- Poll: GET /requests/{id}/status → queued | in_progress | completed | failed | nsfw | canceled;
+  the clip is at video.url
+- Settings: 5s, 720p, 16:9, no audio (muted autoplay; avoids clashing with commentary) ≈ $1.50/clip
+- Prompts are server-side, picked by trigger — clients send only the trigger name
+- app/api/higgsfield: POST { trigger } → { jobId }, GET ?job_id= → { status, videoUrl, error };
+  job ids validated as UUIDs; max 6 new jobs/hour per server instance (cost backstop)
+- hooks/useHiggsfieldMoment.ts polls every 3s (5 min timeout), one moment at a time
+- HiggsfieldMomentModal: bouncing-ball loading state → muted autoplay video + latest commentary
+  call overlaid; reopens when ready even if dismissed while generating
+- Wired: clutch activation (once — clutch latches) and the "Game Winner" header button
 - Store last 3 generated clips in session
 
 #### 8. PARTICLE EFFECTS (tsParticles — replaced Unicorn Studio)

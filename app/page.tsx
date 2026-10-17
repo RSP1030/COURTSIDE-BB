@@ -1,7 +1,9 @@
 import AudioEngine from "@/components/audio/AudioEngine";
 import CommentaryFeed from "@/components/commentary/CommentaryFeed";
+import CinematicMoments from "@/components/effects/CinematicMoments";
 import ClutchOverlay, { ClutchBanner } from "@/components/effects/ClutchOverlay";
 import ParticleBackground from "@/components/effects/ParticleBackground";
+import GameWinnerButton from "@/components/game/GameWinnerButton";
 import Scoreboard from "@/components/scoreboard/Scoreboard";
 
 export default function Home() {
@@ -24,9 +26,12 @@ export default function Home() {
               AI Play-by-Play
             </span>
           </div>
-          <span className="rounded-md border border-border bg-surface/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted">
-            Scorer&apos;s table
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="hidden rounded-md border border-border bg-surface/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted sm:inline">
+              Scorer&apos;s table
+            </span>
+            <GameWinnerButton />
+          </div>
         </header>
 
         <main className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -34,6 +39,9 @@ export default function Home() {
           <CommentaryFeed />
         </main>
       </div>
+
+      {/* Higgsfield cinematic moments — full-screen modal above everything */}
+      <CinematicMoments />
     </div>
   );
 }

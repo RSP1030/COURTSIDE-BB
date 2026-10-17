@@ -5,16 +5,19 @@ import {
   DEFAULT_TEAM_A_NAME,
   DEFAULT_TEAM_B_NAME,
   DEFAULT_VOICE,
+  DEFAULT_GAME_FORMAT,
+  LOTTIE_MOMENTS,
+  MAX_CLOCK_SECONDS,
   MAX_HIGGSFIELD_CLIPS,
   emptyStats,
   periodLength,
 } from "@/lib/constants";
 import type {
+  ClutchInput,
   GameState,
   GameStore,
   Player,
   PlayEvent,
-  Quarter,
   Team,
   TeamId,
 } from "@/types/game";
@@ -31,9 +34,11 @@ function createInitialState(): GameState {
     teamA: createTeam("teamA", DEFAULT_TEAM_A_NAME),
     teamB: createTeam("teamB", DEFAULT_TEAM_B_NAME),
     quarter: 1,
-    timeRemaining: periodLength(1),
+    timeRemaining: periodLength(1, DEFAULT_GAME_FORMAT),
     isClockRunning: false,
     isClutchMode: false,
+    clutchManual: false,
+    gameFormat: DEFAULT_GAME_FORMAT,
     commentary: [],
     lastPlay: null,
     isGeneratingCommentary: false,
@@ -43,21 +48,31 @@ function createInitialState(): GameState {
     showHiggsfieldModal: false,
     higgsfieldStatus: "idle",
     higgsfieldClips: [],
+    higgsfieldMoment: null,
+    higgsfieldError: null,
+    lottieMoment: null,
     gamePhase: "live",
     playerOfMatch: null,
     gameSummary: null,
   };
 }
 
-/** Clutch mode latches: once on, it stays on for the rest of the game. */
-function nextClutch(
-  current: boolean,
-  quarter: Quarter,
-  timeRemaining: number,
-  scoreA: number,
-  scoreB: number,
-): boolean {
-  return current || meetsClutchConditions({ quarter, timeRemaining, scoreA, scoreB });
+/**
+ * Automatic clutch detection. Latches: once on, it stays on for the rest of the game.
+ * Once the scorer uses the manual toggle, their choice wins and detection steps aside.
+ */
+function nextClutch(state: GameState, next: Partial<Omit<ClutchInput, "format">> = {}): boolean {
+  if (state.clutchManual) return state.isClutchMode;
+  return (
+    state.isClutchMode ||
+    meetsClutchConditions({
+      format: state.gameFormat,
+      quarter: next.quarter ?? state.quarter,
+      timeRemaining: next.timeRemaining ?? state.timeRemaining,
+      scoreA: next.scoreA ?? state.teamA.score,
+      scoreB: next.scoreB ?? state.teamB.score,
+    })
+  );
 }
 
 function updatePlayer(
@@ -107,7 +122,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       };
       const scoreA = teamId === "teamA" ? updatedTeam.score : state.teamA.score;
       const scoreB = teamId === "teamB" ? updatedTeam.score : state.teamB.score;
-      const isClutchMode = nextClutch(state.isClutchMode, state.quarter, state.timeRemaining, scoreA, scoreB);
+      const isClutchMode = nextClutch(state, { scoreA, scoreB });
 
       const play: PlayEvent = {
         kind: "score",
@@ -158,33 +173,35 @@ export const useGameStore = create<GameStore>()((set) => ({
   // ── Clock ────────────────────────────────────────────────
   setQuarter: (quarter) =>
     set((state) => {
-      const timeRemaining = periodLength(quarter);
+      const timeRemaining = periodLength(quarter, state.gameFormat);
       return {
         quarter,
         timeRemaining,
         isClockRunning: false,
-        isClutchMode: nextClutch(
-          state.isClutchMode,
-          quarter,
-          timeRemaining,
-          state.teamA.score,
-          state.teamB.score,
-        ),
+        isClutchMode: nextClutch(state, { quarter, timeRemaining }),
       };
     }),
 
+  setGameFormat: (gameFormat) =>
+    set((state) => {
+      if (gameFormat === state.gameFormat) return {};
+      return {
+        gameFormat,
+        quarter: 1,
+        timeRemaining: periodLength(1, gameFormat),
+        isClockRunning: false,
+      };
+    }),
+
+  setClutchMode: (on) => set({ isClutchMode: on, clutchManual: true }),
+
   setTimeRemaining: (seconds) =>
     set((state) => {
-      const timeRemaining = Math.max(0, Math.round(seconds));
+      const timeRemaining = Math.min(MAX_CLOCK_SECONDS, Math.max(0, Math.round(seconds)));
       return {
         timeRemaining,
-        isClutchMode: nextClutch(
-          state.isClutchMode,
-          state.quarter,
-          timeRemaining,
-          state.teamA.score,
-          state.teamB.score,
-        ),
+        isClockRunning: state.isClockRunning && timeRemaining > 0,
+        isClutchMode: nextClutch(state, { timeRemaining }),
       };
     }),
 
@@ -195,13 +212,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       return {
         timeRemaining,
         isClockRunning: timeRemaining > 0,
-        isClutchMode: nextClutch(
-          state.isClutchMode,
-          state.quarter,
-          timeRemaining,
-          state.teamA.score,
-          state.teamB.score,
-        ),
+        isClutchMode: nextClutch(state, { timeRemaining }),
       };
     }),
 
@@ -241,15 +252,45 @@ export const useGameStore = create<GameStore>()((set) => ({
   // ── Higgsfield ───────────────────────────────────────────
   setHiggsfieldStatus: (status) => set({ higgsfieldStatus: status }),
 
+  startHiggsfieldMoment: (moment) =>
+    set({
+      higgsfieldMoment: moment,
+      higgsfieldStatus: "generating",
+      higgsfieldVideoUrl: null,
+      higgsfieldError: null,
+      showHiggsfieldModal: true,
+    }),
+
+  failHiggsfieldMoment: (message) => set({ higgsfieldStatus: "error", higgsfieldError: message }),
+
   addHiggsfieldClip: (clip) =>
     set((state) => ({
       higgsfieldClips: [...state.higgsfieldClips, clip].slice(-MAX_HIGGSFIELD_CLIPS),
       higgsfieldVideoUrl: clip.videoUrl,
       higgsfieldStatus: "ready",
+      // Re-open even if the scorer dismissed the loading screen — this is the payoff.
+      showHiggsfieldModal: true,
     })),
 
   openHiggsfieldModal: (videoUrl) => set({ higgsfieldVideoUrl: videoUrl, showHiggsfieldModal: true }),
   closeHiggsfieldModal: () => set({ showHiggsfieldModal: false }),
+
+  // ── Lottie moments ───────────────────────────────────────
+  showLottieMoment: (kind, label) =>
+    set((state) => {
+      const config = LOTTIE_MOMENTS[kind];
+      const current = state.lottieMoment;
+      // A moment stays until its animation finishes (the overlay clears it). A big
+      // moment is never cut off — by a pop or by another big one (e.g. a clutch three
+      // that also switched clutch on). Pops replace each other.
+      if (current && LOTTIE_MOMENTS[current.kind].size === "full") return {};
+      return {
+        lottieMoment: { id: crypto.randomUUID(), kind, label: label ?? config.label, startedAt: Date.now() },
+      };
+    }),
+
+  clearLottieMoment: (id) =>
+    set((state) => (state.lottieMoment?.id === id ? { lottieMoment: null } : {})),
 
   // ── End of game ──────────────────────────────────────────
   endGame: () => set({ gamePhase: "potm", isClockRunning: false }),

@@ -14,7 +14,7 @@ const VARIANT_STYLES: Record<CommentaryVariant, { rail: string; text: string; ta
 
 const ERROR_STYLE = { rail: "bg-muted", text: "text-muted", tag: "Off air" } as const;
 
-export default function CommentaryBubble({ entry, teamAName, teamBName }: CommentaryBubbleProps) {
+export default function CommentaryBubble({ entry, teamAName, teamBName, gameFormat }: CommentaryBubbleProps) {
   const style = entry.isError ? ERROR_STYLE : VARIANT_STYLES[entry.variant];
   const isWaiting = entry.isStreaming && entry.text.length === 0;
 
@@ -30,7 +30,7 @@ export default function CommentaryBubble({ entry, teamAName, teamBName }: Commen
       <span aria-hidden className={`w-0.5 shrink-0 rounded-full ${style.rail}`} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-          <span className="text-white/80">{formatQuarter(entry.quarter)}</span>
+          <span className="text-white/80">{formatQuarter(entry.quarter, gameFormat)}</span>
           <span className="tabular">{formatClock(entry.timeRemaining)}</span>
           <span aria-hidden>·</span>
           <span className="tabular">
